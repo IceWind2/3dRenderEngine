@@ -1,0 +1,7 @@
+# Enviroment
+.vscode
+
+# Build
+*.o
+*.exe
+MakeFile
