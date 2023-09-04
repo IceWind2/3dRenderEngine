@@ -2,9 +2,9 @@
 #include <chrono>
 #include <thread>
 
-#include "RenderEngine.hpp"
-#include "RenderWindow.hpp"
-#include "Frame.hpp"
+#include "render/RenderEngine.hpp"
+#include "render/RenderWindow.hpp"
+#include "render/Frame.hpp"
 
 void RenderEngine::Start() {
     _engineRunning = true;

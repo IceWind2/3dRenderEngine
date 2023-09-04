@@ -1,8 +1,8 @@
 #include <SDL2/SDL.h>
 #include <iostream>
 
-#include "RenderWindow.hpp"
-#include "Frame.hpp"
+#include "render/RenderWindow.hpp"
+#include "render/Frame.hpp"
 
 RenderWindow::RenderWindow(const char *title, int width, int height)
     : _window(NULL), _renderer(NULL) {

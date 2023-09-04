@@ -1,13 +1,13 @@
 #include <vector>
 #include <SDL2/SDL.h>
 
-#include "Frame.hpp"
+#include "render/Frame.hpp"
 
 Frame::Frame(const std::vector<std::vector<int>>& points)
     : _pixels(_colours.size()) {
 
     for (size_t i = 0; i < points.size(); ++i) {
-        for (size_t j = 0; j < points[0].size(); ++j) {
+        for (size_t j = 0; j < points[i].size(); ++j) {
             SDL_Point pixel {(int)i, (int)j};
 
             _pixels[points[i][j]].push_back(pixel);

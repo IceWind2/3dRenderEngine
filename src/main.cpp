@@ -1,7 +1,7 @@
 #include <SDL2/SDL.h>
 #include <iostream>
 
-#include "RenderEngine.hpp"
+#include "render/RenderEngine.hpp"
 
 int main(int argc, char *args[]) {
     std::cout << "Init SDL" << std::endl;
