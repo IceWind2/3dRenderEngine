@@ -1,6 +1,6 @@
 #pragma once
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <vector>
 
 class Frame {
@@ -10,10 +10,10 @@ private:
         {255, 255, 255}           // white == 1
     };
     
-    std::vector<std::vector<SDL_Point>> _pixels;
+    std::vector<std::vector<SDL_FPoint>> _pixels;
 
 public:
-    Frame(const std::vector<std::vector<int>>& points);
+    Frame(const std::vector<std::vector<float>>& points);
 
     void RenderTo(SDL_Renderer* renderer) const;
 };

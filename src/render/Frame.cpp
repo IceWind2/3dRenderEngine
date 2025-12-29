@@ -1,14 +1,14 @@
 #include <vector>
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 #include "render/Frame.hpp"
 
-Frame::Frame(const std::vector<std::vector<int>>& points)
+Frame::Frame(const std::vector<std::vector<float>>& points)
     : _pixels(_colours.size()) {
 
     for (size_t i = 0; i < points.size(); ++i) {
         for (size_t j = 0; j < points[i].size(); ++j) {
-            SDL_Point pixel {(int)i, (int)j};
+            SDL_FPoint pixel {(float)i, (float)j};
 
             _pixels[points[i][j]].push_back(pixel);
         }
@@ -23,7 +23,7 @@ void Frame::RenderTo(SDL_Renderer* renderer) const {
                                std::get<2>(_colours[i]),
                                255);
 
-        SDL_RenderDrawPoints(renderer, &_pixels[i][0], _pixels[i].size());
+        SDL_RenderPoints(renderer, &_pixels[i][0], _pixels[i].size());
     }
 
     SDL_RenderPresent(renderer);

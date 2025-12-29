@@ -1,4 +1,5 @@
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
 #include <iostream>
 
 #include "render/RenderEngine.hpp"
@@ -6,7 +7,7 @@
 int main(int argc, char *args[]) {
     std::cout << "Init SDL" << std::endl;
 
-    if (SDL_Init(SDL_INIT_VIDEO) > 0) {
+    if (!SDL_Init(SDL_INIT_VIDEO)) {
         std::cout << "SDL_Init error " << SDL_GetError() << std::endl;
 
         return 1;
