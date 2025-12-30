@@ -2,7 +2,7 @@
 #include <SDL3/SDL_main.h>
 #include <iostream>
 
-#include "render/RenderEngine.hpp"
+#include "Engine3D/Engine3D.hpp"
 
 int main(int argc, char *args[]) {
     std::cout << "Init SDL" << std::endl;
@@ -14,9 +14,8 @@ int main(int argc, char *args[]) {
     }
 
     try {
-        RenderEngine rEngine;
-
-        rEngine.Start();
+        Engine3D engine(1280, 960);
+        engine.StartRenderingLoop();
     }
     catch (std::exception &ex) {
         std::cout << ex.what() << std::endl;
