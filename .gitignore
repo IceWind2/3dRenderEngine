@@ -4,4 +4,6 @@
 # Build
 *.o
 *.exe
+build/
+.cache/
 MakeFile

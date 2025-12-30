@@ -1,5 +1,6 @@
 #include <SDL3/SDL.h>
-#include <iostream>
+#include <string>
+#include <stdexcept>
 
 #include "render/RenderWindow.hpp"
 #include "render/Frame.hpp"
