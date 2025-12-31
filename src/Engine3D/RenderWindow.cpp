@@ -35,6 +35,13 @@ void RenderWindow::DrawTriangle(const triangle* tri) const{
     points[3] = points[0];
 
     SDL_RenderLines(_renderer, points, 4);
+}
+
+void RenderWindow::Present() const{
     SDL_RenderPresent(_renderer);
 }
 
+void RenderWindow::ClearScreen() const{
+    SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 255);
+    SDL_RenderClear(_renderer);
+}

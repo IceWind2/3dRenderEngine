@@ -12,4 +12,6 @@ public:
     ~RenderWindow();
     
     void DrawTriangle(const triangle* tri) const;
+    void ClearScreen() const;
+    void Present() const;
 };

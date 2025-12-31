@@ -15,7 +15,7 @@ int main(int argc, char *args[]) {
 
     try {
         Engine3D engine(1280, 960);
-        engine.StartRenderingLoop();
+        engine.StartEngineLoop();
     }
     catch (std::exception &ex) {
         std::cout << ex.what() << std::endl;
