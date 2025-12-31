@@ -10,19 +10,20 @@ struct UpdateData {
 
 class Engine3D {
 private:
-    int width, height;
-    bool exit = false;
+    int _width, _height;
+    bool _exit = false;
     std::unique_ptr<RenderWindow> _renderWindow;
+    vec3d _vCamera, _lightDirection;
     mat4x4 _matProj;
+    UpdateData _uData;
+    
     mesh _meshCube;
-    UpdateData uData = { 0.0f };
 
-    void MultiplyMatrixVector(const vec3d& i, vec3d& o, const mat4x4& m);
     void Update(float deltaTime);
     void Render();
 public:
     Engine3D(int width, int height);
 
-    void Initialize();
+    void InitializeScene();
     void StartEngineLoop();
 };

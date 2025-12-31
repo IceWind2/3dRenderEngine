@@ -11,7 +11,7 @@ public:
     RenderWindow(const char *title, int width, int height);
     ~RenderWindow();
     
-    void DrawTriangle(const triangle* tri) const;
+    void DrawTriangle(const triangle& tri, const float lum) const;
     void ClearScreen() const;
     void Present() const;
 };
