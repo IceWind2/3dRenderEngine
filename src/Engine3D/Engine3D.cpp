@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdio>
 #include <memory>
 #include <cmath>
@@ -34,33 +35,9 @@ Engine3D::Engine3D(int width, int height) : _width(width), _height(height) {
 }
 
 void Engine3D::InitializeScene() {
-    _meshCube.tris = {
-        // SOUTH
-        {0.0f, 0.0f, 0.0f,  0.0f, 1.0f, 0.0f,  1.0f, 1.0f, 0.0f},
-        {0.0f, 0.0f, 0.0f,  1.0f, 1.0f, 0.0f,  1.0f, 0.0f, 0.0f},
+    _objects.push_back(mesh("assets/VideoShip.obj"));
 
-        // EAST
-        {1.0f, 0.0f, 0.0f,  1.0f, 1.0f, 0.0f,  1.0f, 1.0f, 1.0f},
-        {1.0f, 0.0f, 0.0f,  1.0f, 1.0f, 1.0f,  1.0f, 0.0f, 1.0f},
-
-        // NORTH
-        {1.0f, 0.0f, 1.0f,  1.0f, 1.0f, 1.0f,  0.0f, 1.0f, 1.0f},
-        {1.0f, 0.0f, 1.0f,  0.0f, 1.0f, 1.0f,  0.0f, 0.0f, 1.0f},
-
-        // WEST
-        {0.0f, 0.0f, 1.0f,  0.0f, 1.0f, 1.0f,  0.0f, 1.0f, 0.0f},
-        {0.0f, 0.0f, 1.0f,  0.0f, 1.0f, 0.0f,  0.0f, 0.0f, 0.0f},
-
-        // TOP
-        {0.0f, 1.0f, 0.0f,   0.0f, 1.0f, 1.0f,  1.0f, 1.0f, 1.0f},
-        {0.0f, 1.0f, 0.0f,   1.0f, 1.0f, 1.0f,  1.0f, 1.0f, 0.0f},
-        
-        // BOTTOM
-        {1.0f, 0.0f, 1.0f,  0.0f, 0.0f, 1.0f,  0.0f, 0.0f, 0.0f},
-        {1.0f, 0.0f, 1.0f,  0.0f, 0.0f, 0.0f,  1.0f, 0.0f, 0.0f},
-    };
-
-    _uData = { 0.0f };
+    _updateData = { 0.0f, {}, {} };
 }
 
 void Engine3D::StartEngineLoop() {
@@ -96,72 +73,88 @@ void Engine3D::StartEngineLoop() {
 }
 
 void Engine3D::Update(float deltaTime) {
-    _uData.fTheta += 0.001f * deltaTime;
+    _updateData.fTheta += 0.001f * deltaTime;
+
+    _updateData.matRotZ.m[0][0] = cosf(_updateData.fTheta);
+    _updateData.matRotZ.m[0][1] = sinf(_updateData.fTheta);
+    _updateData.matRotZ.m[1][0] = -sinf(_updateData.fTheta);
+    _updateData.matRotZ.m[1][1] = cosf(_updateData.fTheta);
+    _updateData.matRotZ.m[2][2] = 1;
+    _updateData.matRotZ.m[3][3] = 1;
+
+    _updateData.matRotX.m[0][0] = 1;
+    _updateData.matRotX.m[1][1] = cosf(_updateData.fTheta);
+    _updateData.matRotX.m[1][2] = sinf(_updateData.fTheta);
+    _updateData.matRotX.m[2][1] = -sinf(_updateData.fTheta);
+    _updateData.matRotX.m[2][2] = cosf(_updateData.fTheta);
+    _updateData.matRotX.m[3][3] = 1;
 }
 
 void Engine3D::Render() {
     _renderWindow->ClearScreen();
     
-    mat4x4 matRotZ, matRotX;
-
-    matRotZ.m[0][0] = cosf(_uData.fTheta);
-    matRotZ.m[0][1] = sinf(_uData.fTheta);
-    matRotZ.m[1][0] = -sinf(_uData.fTheta);
-    matRotZ.m[1][1] = cosf(_uData.fTheta);
-    matRotZ.m[2][2] = 1;
-    matRotZ.m[3][3] = 1;
-
-    matRotX.m[0][0] = 1;
-    matRotX.m[1][1] = cosf(_uData.fTheta);
-    matRotX.m[1][2] = sinf(_uData.fTheta);
-    matRotX.m[2][1] = -sinf(_uData.fTheta);
-    matRotX.m[2][2] = cosf(_uData.fTheta);
-    matRotX.m[3][3] = 1;
-
-    for (auto tri : _meshCube.tris) {
-        triangle triRotatedZ, triRotatedZX, triTranslated, triProjected;
-
-        MultiplyMatrixVector(tri.p[0], triRotatedZ.p[0], matRotZ);
-        MultiplyMatrixVector(tri.p[1], triRotatedZ.p[1], matRotZ);
-        MultiplyMatrixVector(tri.p[2], triRotatedZ.p[2], matRotZ);
-
-        MultiplyMatrixVector(triRotatedZ.p[0], triRotatedZX.p[0], matRotX);
-        MultiplyMatrixVector(triRotatedZ.p[1], triRotatedZX.p[1], matRotX);
-        MultiplyMatrixVector(triRotatedZ.p[2], triRotatedZX.p[2], matRotX);
-
-        triTranslated = triRotatedZX;
-        triTranslated.p[0].z += 3.0f;
-        triTranslated.p[1].z += 3.0f;
-        triTranslated.p[2].z += 3.0f;
-
-        vec3d normal, line1, line2;
-        line1 = triTranslated.p[1] - triTranslated.p[0];
-        line2 = triTranslated.p[2] - triTranslated.p[0];
-        CrossProduct(line1, line2, normal);
-        normal.Normalize();
-        
-        if (DotProduct((triTranslated.p[0] - _vCamera), normal) >= 0.0f) {
-            continue;
+    // Calculate triangles to raster
+    std::vector<triangle> trianglesToRaster;
+    for (auto& obj : _objects) {
+        for (auto& tri : obj.tris) {
+            triangle triRotatedZ, triRotatedZX, triTranslated, triProjected;
+    
+            MultiplyMatrixVector(tri.p[0], triRotatedZ.p[0], _updateData.matRotZ);
+            MultiplyMatrixVector(tri.p[1], triRotatedZ.p[1], _updateData.matRotZ);
+            MultiplyMatrixVector(tri.p[2], triRotatedZ.p[2], _updateData.matRotZ);
+    
+            MultiplyMatrixVector(triRotatedZ.p[0], triRotatedZX.p[0], _updateData.matRotX);
+            MultiplyMatrixVector(triRotatedZ.p[1], triRotatedZX.p[1], _updateData.matRotX);
+            MultiplyMatrixVector(triRotatedZ.p[2], triRotatedZX.p[2], _updateData.matRotX);
+    
+            triTranslated = triRotatedZX;
+            triTranslated.p[0].z += 9.0f;
+            triTranslated.p[1].z += 9.0f;
+            triTranslated.p[2].z += 9.0f;
+            
+            vec3d normal, line1, line2;
+            line1 = triTranslated.p[1] - triTranslated.p[0];
+            line2 = triTranslated.p[2] - triTranslated.p[0];
+            CrossProduct(line1, line2, normal);
+            normal.Normalize();
+            
+            if (DotProduct((triTranslated.p[0] - _vCamera), normal) >= 0.0f) {
+                continue;
+            }
+            
+            // Project triangles from 3D --> 2D
+            MultiplyMatrixVector(triTranslated.p[0], triProjected.p[0], _matProj);
+            MultiplyMatrixVector(triTranslated.p[1], triProjected.p[1], _matProj);
+            MultiplyMatrixVector(triTranslated.p[2], triProjected.p[2], _matProj);
+            
+            triProjected.p[0].x += 1.0f; triProjected.p[0].y += 1.0f;
+            triProjected.p[1].x += 1.0f; triProjected.p[1].y += 1.0f;
+            triProjected.p[2].x += 1.0f; triProjected.p[2].y += 1.0f;
+            
+            triProjected.p[0].x *= 0.5f * (float)_width;
+            triProjected.p[0].y *= 0.5f * (float)_height;
+            triProjected.p[1].x *= 0.5f * (float)_width;
+            triProjected.p[1].y *= 0.5f * (float)_height;
+            triProjected.p[2].x *= 0.5f * (float)_width;
+            triProjected.p[2].y *= 0.5f * (float)_height;
+            
+            triProjected.normal = normal;
+            trianglesToRaster.push_back(triProjected);
         }
-        
-        // Project triangles from 3D --> 2D
-        MultiplyMatrixVector(triTranslated.p[0], triProjected.p[0], _matProj);
-        MultiplyMatrixVector(triTranslated.p[1], triProjected.p[1], _matProj);
-        MultiplyMatrixVector(triTranslated.p[2], triProjected.p[2], _matProj);
-        
-        triProjected.p[0].x += 1.0f; triProjected.p[0].y += 1.0f;
-        triProjected.p[1].x += 1.0f; triProjected.p[1].y += 1.0f;
-        triProjected.p[2].x += 1.0f; triProjected.p[2].y += 1.0f;
-        
-        triProjected.p[0].x *= 0.5f * (float)_width;
-        triProjected.p[0].y *= 0.5f * (float)_height;
-        triProjected.p[1].x *= 0.5f * (float)_width;
-        triProjected.p[1].y *= 0.5f * (float)_height;
-        triProjected.p[2].x *= 0.5f * (float)_width;
-        triProjected.p[2].y *= 0.5f * (float)_height;
-        
-        float lum = DotProduct(normal, _lightDirection);
-        _renderWindow->DrawTriangle(triProjected, lum);
+    }
+    
+    // Sort triangles from back to front
+    std::sort(trianglesToRaster.begin(), trianglesToRaster.end(),
+              [](triangle& t1, triangle& t2) {
+                  float z1 = (t1.p[0].z + t1.p[1].z + t1.p[2].z) / 3.0f;
+                  float z2 = (t2.p[0].z + t2.p[1].z + t2.p[2].z) / 3.0f;
+                  return z1 > z2;
+              });
+
+    // Rasterize triangles            
+    for (auto& tri : trianglesToRaster) {
+        float lum = DotProduct(tri.normal, _lightDirection);
+        _renderWindow->DrawTriangle(tri, lum);
     }
     
     _renderWindow->Present();
