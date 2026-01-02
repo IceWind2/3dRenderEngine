@@ -14,10 +14,9 @@ class Engine3D {
 private:
     int _width, _height, _fpsTarget;
     std::unique_ptr<RenderWindow> _renderWindow;
-    vec3d _vCamera, _lightDirection;
+    vec3d _vCameraPosition, _vCameraDirection, _vUpDirection, _lightDirection;
     mat4x4 _matProj;
     
-    UpdateData _updateData;
     std::vector<mesh> _objects;
 
     void Update(float deltaTime);
@@ -25,6 +24,6 @@ private:
 public:
     Engine3D(int width, int height);
 
-    void InitializeScene();
+    void LoadObjects();
     void StartEngineLoop();
 };

@@ -64,7 +64,7 @@ struct vec3d {
     vec3d Normal() {
         float l = Length();
         if (l < 0.000001f && l > -0.000001f) {
-            // std::cerr << "[Error] Zero division in vector normalization" << std::endl;
+            std::cerr << "[Error] Zero division in vector normalization" << std::endl;
             return *this;
         }
 
@@ -74,7 +74,7 @@ struct vec3d {
     vec3d& Normalize() {
         float l = Length();
         if (l < 0.000001f && l > -0.000001f) {
-            // std::cerr << "[Error] Zero division in vector normalization" << std::endl;
+            std::cerr << "[Error] Zero division in vector normalization" << std::endl;
             return *this;
         }
 
@@ -116,10 +116,19 @@ struct triangle {
         p[0] -= v; p[1] -= v; p[2] -= v;
         return *this;
     }
+
+    void CalculateNormal() {
+        vec3d line1 = p[1] - p[0];
+        vec3d line2 = p[2] - p[0];
+        normal = line1.Cross(line2).Normalize();
+    }
 };
 
 struct mesh {
     std::vector<triangle> tris;
+
+    vec3d vPosition = {0.0f, 0.0f, 0.0f};
+    vec3d radRotation = {0.0f, 0.0f, 0.0f};
 };
 
 struct mat4x4 {
@@ -136,3 +145,6 @@ mat4x4 MatrixMakeRotationX(float fAngleRad);
 mat4x4 MatrixMakeRotationY(float fAngleRad);
 mat4x4 MatrixMakeRotationZ(float fAngleRad);
 mat4x4 MatrixMakeTranslation(float x, float y, float z);
+mat4x4 MatrixMakeProjection(float fFovDegrees, float fAspectRatio, float fNear, float fFar);
+mat4x4 MatrixMakeTransform(vec3d& pos, vec3d& target, vec3d& up);
+mat4x4 MatrixMakeInverseTransform(mat4x4 &m);
