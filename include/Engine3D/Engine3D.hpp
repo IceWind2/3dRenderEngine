@@ -3,17 +3,16 @@
 #include <memory>
 #include <vector>
 #include "Engine3D/RenderWindow.hpp"
-#include "Engine3D/MathTypes.hpp"
+#include "Engine3D/VectorMatrix.hpp"
 
 struct UpdateData {
-    float fTheta;
+    float fThetaRad;
     mat4x4 matRotX, matRotZ;
 };
 
 class Engine3D {
 private:
-    int _width, _height;
-    bool _exit = false;
+    int _width, _height, _fpsTarget;
     std::unique_ptr<RenderWindow> _renderWindow;
     vec3d _vCamera, _lightDirection;
     mat4x4 _matProj;

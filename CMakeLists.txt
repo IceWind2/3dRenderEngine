@@ -12,6 +12,7 @@ link_directories(${CMAKE_SOURCE_DIR}/lib)
 add_library(Engine3D SHARED
     src/Engine3D/Engine3D.cpp
     src/Engine3D/RenderWindow.cpp
+    src/Engine3D/VectorMatrix.cpp
 )
 
 # Create executable

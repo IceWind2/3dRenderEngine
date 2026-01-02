@@ -1,17 +1,15 @@
 #include <algorithm>
-#include <cstdio>
-#include <memory>
-#include <cmath>
 #include <chrono>
 #include <SDL3/SDL.h>
 
 #include "Engine3D/Engine3D.hpp"
-#include "Engine3D/MathTypes.hpp"
+#include "Engine3D/VectorMatrix.hpp"
 #include "SDL3/SDL_scancode.h"
 
 Engine3D::Engine3D(int width, int height) : _width(width), _height(height) {
     // Setup rendering loop
     _renderWindow = std::make_unique<RenderWindow>("3D Graphics Engine", width, height);
+    _fpsTarget = 120;
     
     // Setup Camera
     _vCamera = { 0.0f, 0.0f, 0.0f };
@@ -35,7 +33,10 @@ Engine3D::Engine3D(int width, int height) : _width(width), _height(height) {
 }
 
 void Engine3D::InitializeScene() {
-    _objects.push_back(mesh("assets/VideoShip.obj"));
+    mesh objMesh;
+    if (LoadMeshFromObjectFile("assets/VideoShip.obj", objMesh)) {
+        _objects.push_back(objMesh);
+    }
 
     _updateData = { 0.0f, {}, {} };
 }
@@ -44,102 +45,93 @@ void Engine3D::StartEngineLoop() {
     SDL_Event event;
     auto previousTime = std::chrono::steady_clock::now();
 
-    while (!_exit) {
-        auto frameStart = std::chrono::steady_clock::now();
-        float deltaTime = std::chrono::duration<float, std::milli>(frameStart - previousTime).count();
-        previousTime = frameStart;
-
+    float avgFrameTime = 0.0f;
+    bool exit = false;
+    bool process = true;
+    while (!exit) {
         // Handle events
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT ||
                 (event.type == SDL_EVENT_KEY_DOWN && event.key.scancode == SDL_SCANCODE_ESCAPE)) {
-                _exit = true;
+                exit = true;
+            }
+            if (event.type == SDL_EVENT_KEY_DOWN && event.key.scancode == SDL_SCANCODE_SPACE) {
+                process = !process;
+                previousTime = std::chrono::steady_clock::now();
             }
         }
-        
-        // Update scene
+
+        if (!process) {
+            SDL_Delay(5);
+            continue;
+        }
+
+        // Process frame
+        auto frameStart = std::chrono::steady_clock::now();
+        float deltaTime = std::chrono::duration<float, std::milli>(frameStart - previousTime).count();
+        previousTime = frameStart;
+
         Update(deltaTime);
         
-        // Render graphics
         Render();
 
-        // Sync frame rate to ~120 FPS
+        // Calculate frame time and FPS
         auto frameFinish = std::chrono::steady_clock::now();
         float frameTime = std::chrono::duration<float, std::milli>(frameFinish - frameStart).count();
-        if (frameTime < 8.33f) {
-            SDL_Delay((Uint32)(8.33f - frameTime));
+        avgFrameTime = (avgFrameTime * 0.9f) + (frameTime * 0.1f);
+        _renderWindow->SetTitle(("3D Graphics Engine - " + std::to_string((int)(1000.0f / avgFrameTime)) + " FPS").c_str());
+        if (frameTime < 1000.0f / (float)_fpsTarget) {
+            SDL_Delay((Uint32)(1000.0f / (float)_fpsTarget - frameTime));
         }
     }
 }
 
 void Engine3D::Update(float deltaTime) {
-    _updateData.fTheta += 0.001f * deltaTime;
-
-    _updateData.matRotZ.m[0][0] = cosf(_updateData.fTheta);
-    _updateData.matRotZ.m[0][1] = sinf(_updateData.fTheta);
-    _updateData.matRotZ.m[1][0] = -sinf(_updateData.fTheta);
-    _updateData.matRotZ.m[1][1] = cosf(_updateData.fTheta);
-    _updateData.matRotZ.m[2][2] = 1;
-    _updateData.matRotZ.m[3][3] = 1;
-
-    _updateData.matRotX.m[0][0] = 1;
-    _updateData.matRotX.m[1][1] = cosf(_updateData.fTheta);
-    _updateData.matRotX.m[1][2] = sinf(_updateData.fTheta);
-    _updateData.matRotX.m[2][1] = -sinf(_updateData.fTheta);
-    _updateData.matRotX.m[2][2] = cosf(_updateData.fTheta);
-    _updateData.matRotX.m[3][3] = 1;
+    _updateData.matRotZ = MatrixMakeRotationZ(_updateData.fThetaRad);
+    _updateData.matRotX = MatrixMakeRotationX(_updateData.fThetaRad);
+    
+    _updateData.fThetaRad += 0.001f * deltaTime;
 }
 
 void Engine3D::Render() {
     _renderWindow->ClearScreen();
     
+    // Calculate world matrix
+    mat4x4 worldMatrix;
+    worldMatrix = MatrixMultiplyMatrix(_updateData.matRotZ, _updateData.matRotX);
+    worldMatrix = MatrixMultiplyMatrix(worldMatrix, MatrixMakeTranslation(0.0f, 0.0f, 9.0f));
+    
     // Calculate triangles to raster
     std::vector<triangle> trianglesToRaster;
     for (auto& obj : _objects) {
         for (auto& tri : obj.tris) {
-            triangle triRotatedZ, triRotatedZX, triTranslated, triProjected;
-    
-            MultiplyMatrixVector(tri.p[0], triRotatedZ.p[0], _updateData.matRotZ);
-            MultiplyMatrixVector(tri.p[1], triRotatedZ.p[1], _updateData.matRotZ);
-            MultiplyMatrixVector(tri.p[2], triRotatedZ.p[2], _updateData.matRotZ);
-    
-            MultiplyMatrixVector(triRotatedZ.p[0], triRotatedZX.p[0], _updateData.matRotX);
-            MultiplyMatrixVector(triRotatedZ.p[1], triRotatedZX.p[1], _updateData.matRotX);
-            MultiplyMatrixVector(triRotatedZ.p[2], triRotatedZX.p[2], _updateData.matRotX);
-    
-            triTranslated = triRotatedZX;
-            triTranslated.p[0].z += 9.0f;
-            triTranslated.p[1].z += 9.0f;
-            triTranslated.p[2].z += 9.0f;
-            
-            vec3d normal, line1, line2;
-            line1 = triTranslated.p[1] - triTranslated.p[0];
-            line2 = triTranslated.p[2] - triTranslated.p[0];
-            CrossProduct(line1, line2, normal);
-            normal.Normalize();
-            
-            if (DotProduct((triTranslated.p[0] - _vCamera), normal) >= 0.0f) {
+            triangle triTransformed;
+            triTransformed = MatrixMultiplyTriangle(worldMatrix, tri);
+
+            vec3d line1, line2;
+            line1 = triTransformed.p[1] - triTransformed.p[0];
+            line2 = triTransformed.p[2] - triTransformed.p[0];
+            triTransformed.normal = line1.Cross(line2).Normalize();
+
+            if (triTransformed.normal.Dot(triTransformed.p[0] - _vCamera) >= 0.0f) {
                 continue;
             }
             
-            // Project triangles from 3D --> 2D
-            MultiplyMatrixVector(triTranslated.p[0], triProjected.p[0], _matProj);
-            MultiplyMatrixVector(triTranslated.p[1], triProjected.p[1], _matProj);
-            MultiplyMatrixVector(triTranslated.p[2], triProjected.p[2], _matProj);
+            // Project triangles from 3D --> 2D and scale into view
+            triTransformed = MatrixMultiplyTriangle(_matProj, triTransformed);
+    
+            triTransformed.p[0] /= triTransformed.p[0].w;
+            triTransformed.p[1] /= triTransformed.p[1].w;
+            triTransformed.p[2] /= triTransformed.p[2].w;
+            triTransformed += vec3d{1.0f, 1.0f, 0.0f};
+            triTransformed.p[0].x *= 0.5f * (float)_width;
+            triTransformed.p[0].y *= 0.5f * (float)_height;
+            triTransformed.p[1].x *= 0.5f * (float)_width;
+            triTransformed.p[1].y *= 0.5f * (float)_height;
+            triTransformed.p[2].x *= 0.5f * (float)_width;
+            triTransformed.p[2].y *= 0.5f * (float)_height;
             
-            triProjected.p[0].x += 1.0f; triProjected.p[0].y += 1.0f;
-            triProjected.p[1].x += 1.0f; triProjected.p[1].y += 1.0f;
-            triProjected.p[2].x += 1.0f; triProjected.p[2].y += 1.0f;
-            
-            triProjected.p[0].x *= 0.5f * (float)_width;
-            triProjected.p[0].y *= 0.5f * (float)_height;
-            triProjected.p[1].x *= 0.5f * (float)_width;
-            triProjected.p[1].y *= 0.5f * (float)_height;
-            triProjected.p[2].x *= 0.5f * (float)_width;
-            triProjected.p[2].y *= 0.5f * (float)_height;
-            
-            triProjected.normal = normal;
-            trianglesToRaster.push_back(triProjected);
+            trianglesToRaster.push_back(triTransformed);
         }
     }
     
@@ -153,7 +145,7 @@ void Engine3D::Render() {
 
     // Rasterize triangles            
     for (auto& tri : trianglesToRaster) {
-        float lum = DotProduct(tri.normal, _lightDirection);
+        float lum = tri.normal.Dot(_lightDirection);
         _renderWindow->DrawTriangle(tri, lum);
     }
     
