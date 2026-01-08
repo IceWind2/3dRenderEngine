@@ -13,7 +13,7 @@ Engine3D::Engine3D(int width, int height)
     
     // Setup default projection matrix
     _zNear = 3.0f;
-    _zFar = 20.0f;
+    _zFar = 120.0f;
     _fov = 90.0f;
     _aspectRatio = (float)height / (float)width;
     _matProj = MatrixMakeProjection(_fov, _aspectRatio, _zNear, _zFar);
@@ -31,7 +31,7 @@ Engine3D::Engine3D(int width, int height)
 
 void Engine3D::LoadObjects() {
     mesh objMesh;
-    if (LoadMeshFromObjectFile("assets/axis.obj", objMesh)) {
+    if (LoadMeshFromObjectFile("assets/mountains.obj", objMesh)) {
         objMesh.vPosition = {0.0f, 0.0f, 10.0f};
         _objects.push_back(objMesh);
     }
@@ -171,16 +171,12 @@ void Engine3D::Render() {
                 triClipped.p[2] /= triClipped.p[2].w;
     
                 // Viewport transform
-                triClipped.p[0].y *= -1.0f;
-                triClipped.p[1].y *= -1.0f;
-                triClipped.p[2].y *= -1.0f;
-                triClipped += vec3d{1.0f, 1.0f, 0.0f};
-                triClipped.p[0].x *= 0.5f * (float)_width;
-                triClipped.p[0].y *= 0.5f * (float)_height;
-                triClipped.p[1].x *= 0.5f * (float)_width;
-                triClipped.p[1].y *= 0.5f * (float)_height;
-                triClipped.p[2].x *= 0.5f * (float)_width;
-                triClipped.p[2].y *= 0.5f * (float)_height;
+                triClipped.p[0].x = (triClipped.p[0].x + 1) * 0.5f * (float)_width;
+                triClipped.p[1].x = (triClipped.p[1].x + 1) * 0.5f * (float)_width;
+                triClipped.p[2].x = (triClipped.p[2].x + 1) * 0.5f * (float)_width;
+                triClipped.p[0].y = (-triClipped.p[0].y + 1) * 0.5f * (float)_height;
+                triClipped.p[1].y = (-triClipped.p[1].y + 1) * 0.5f * (float)_height;
+                triClipped.p[2].y = (-triClipped.p[2].y + 1) * 0.5f * (float)_height;
                 
                 trianglesToRaster.push_back(triClipped);
                 clippedTriangles.pop();
