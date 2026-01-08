@@ -3,20 +3,17 @@
 #include <SDL3/SDL.h>
 #include <cmath>
 #include <cstddef>
+#include <vector>
 
 #include "Engine3D/Engine3D.hpp"
 #include "Engine3D/VectorMatrix.hpp"
-#include "SDL3/SDL_events.h"
-#include "SDL3/SDL_scancode.h"
 
-Engine3D::Engine3D(int width, int height) : _width(width), _height(height) {
-    // Setup rendering loop
-    _renderWindow = std::make_unique<RenderWindow>("3D Graphics Engine", width, height);
-    _fpsTarget = 120;
+Engine3D::Engine3D(int width, int height)
+    : _width(width), _height(height), _renderWindow("3D Graphics Engine", width, height), _fpsTarget(120) {
     
     // Setup default projection matrix
-    _zNear = 0.1f;
-    _zFar = 1000.0f;
+    _zNear = 3.0f;
+    _zFar = 20.0f;
     _fov = 90.0f;
     _aspectRatio = (float)height / (float)width;
     _matProj = MatrixMakeProjection(_fov, _aspectRatio, _zNear, _zFar);
@@ -25,8 +22,6 @@ Engine3D::Engine3D(int width, int height) : _width(width), _height(height) {
     _vCameraPosition = { 0.0f, 0.0f, 0.0f };
     _vCameraDirection = { 0.0f, 0.0f, 1.0f };
     _vUpDirection = { 0.0f, 1.0f, 0.0f };
-    _nNearPlane = { 0.0f, 0.0f, 1.0f };
-    _pNearPlane = {0.0f, 0.0f, _zNear };
 
     // Setup light
     _lightDirection = { 0.0f, 0.0f, 1.0f };
@@ -80,7 +75,7 @@ void Engine3D::StartEngineLoop() {
         auto frameFinish = std::chrono::steady_clock::now();
         float frameTime = std::chrono::duration<float, std::milli>(frameFinish - frameStart).count();
         avgFrameTime = (avgFrameTime * 0.9f) + (frameTime * 0.1f);
-        _renderWindow->SetTitle(("3D Graphics Engine - " + std::to_string((int)(1000.0f / avgFrameTime)) + " FPS").c_str());
+        _renderWindow.SetTitle(("3D Graphics Engine - " + std::to_string((int)(1000.0f / avgFrameTime)) + " FPS").c_str());
         if (frameTime < 1000.0f / (float)_fpsTarget) {
             SDL_Delay((Uint32)(1000.0f / (float)_fpsTarget - frameTime));
         }
@@ -129,7 +124,7 @@ void Engine3D::Update(float deltaTime) {
 }
 
 void Engine3D::Render() {
-    _renderWindow->ClearScreen();
+    _renderWindow.ClearScreen();
     
     mat4x4 matCamera = MatrixMakeTransform(_vCameraPosition, _vCameraDirection, _vUpDirection);
     mat4x4 matView = MatrixMakeInverseTransform(matCamera);
@@ -161,14 +156,15 @@ void Engine3D::Render() {
             // View transformation
             triTransformed = MatrixMultiplyTriangle(matView, triTransformed);
 
-            // Clipping
-            std::vector<triangle> clippedTriangles = PlaneClipTriangle(_nNearPlane, _pNearPlane, triTransformed);
+            // Projection to clipping space
+            triTransformed = MatrixMultiplyTriangle(_matProj, triTransformed);
+            
+            // Homogeneous clipping
+            std::queue<triangle> clippedTriangles = FrustrumClipTriangle(triTransformed);
 
+            while (!clippedTriangles.empty()) {
+                triangle& triClipped = clippedTriangles.front();
 
-            for (auto& triClipped : clippedTriangles) {
-                // Project triangles from 3D --> 2D
-                triClipped = MatrixMultiplyTriangle(_matProj, triClipped);
-    
                 // Perspective divide
                 triClipped.p[0] /= triClipped.p[0].w;
                 triClipped.p[1] /= triClipped.p[1].w;
@@ -187,6 +183,7 @@ void Engine3D::Render() {
                 triClipped.p[2].y *= 0.5f * (float)_height;
                 
                 trianglesToRaster.push_back(triClipped);
+                clippedTriangles.pop();
             }
         }
     }
@@ -202,8 +199,8 @@ void Engine3D::Render() {
     // Rasterize triangles            
     for (auto& tri : trianglesToRaster) {
         float lum = fmax(0.1, -tri.normal.Dot(_lightDirection));
-        _renderWindow->DrawTriangle(tri, lum);
+        _renderWindow.DrawTriangle(tri, lum);
     }
     
-    _renderWindow->Present();
+    _renderWindow.Present();
 }

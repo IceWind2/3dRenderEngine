@@ -1,5 +1,8 @@
 #include <fstream>
+#include <functional>
+#include <queue>
 #include <sstream>
+#include <vector>
 
 #include "Engine3D/VectorMatrix.hpp"
 
@@ -124,8 +127,8 @@ mat4x4 MatrixMakeProjection(float fFovDegrees, float fAspectRatio, float fNear, 
     mat4x4 matrix;
     matrix.m[0][0] = fAspectRatio * fFovRad;
     matrix.m[1][1] = fFovRad;
-    matrix.m[2][2] = fFar / (fFar - fNear);
-    matrix.m[3][2] = (-fFar * fNear) / (fFar - fNear);
+    matrix.m[2][2] = (fFar + fNear) / (fFar - fNear);
+    matrix.m[3][2] = -(2.0f * fFar * fNear) / (fFar - fNear);
     matrix.m[2][3] = 1.0f;
     matrix.m[3][3] = 0.0f;
     return matrix;
@@ -158,7 +161,102 @@ mat4x4 MatrixMakeInverseTransform(mat4x4 &m) {
     matrix.m[3][3] = 1.0f;
     return matrix;
 }
- 
+
+vec3d SegmentIntersectHyperplane(const vec3d& a, const vec3d& b, const std::function<float(const vec3d&)> dimSelector) {
+    vec3d v = b.SubHomogeneous(a);
+    float t = (dimSelector(a) - a.w) / (v.w - dimSelector(v));
+    return a.AddHomogeneous(v.MulHomogeneous(t));
+}
+
+std::vector<triangle> HyperplaneClipTriangle(const triangle& in_tri, const vec3d hyperplane_n, const std::function<float(const vec3d&)> dimSelector ) {
+    auto const dist = [&](const vec3d& p) {
+        return hyperplane_n.DotHomogeneous(p);
+    };
+    
+    std::vector<vec3d const*> in_points;
+    std::vector<vec3d const*> out_points;
+
+    for(const vec3d& p : in_tri.p) {
+        if (dist(p) >= 0.0f) {
+            in_points.push_back(&p);
+        }
+        else {
+            out_points.push_back(&p);
+        }
+    }
+
+    if (in_points.size() == 0) {
+        return {};
+    }
+    if (in_points.size() == 3) {
+        return {in_tri};
+    }
+
+    std::vector<triangle> result;
+
+    if (in_points.size() == 1 && out_points.size() == 2) {
+        triangle newTri(in_tri);
+        newTri.p[0] = *in_points[0];
+        newTri.p[1] = SegmentIntersectHyperplane(*in_points[0], *out_points[0], dimSelector);
+        newTri.p[2] = SegmentIntersectHyperplane(*in_points[0], *out_points[1], dimSelector);
+
+        result.push_back(newTri);
+        return result;
+    }
+
+    if (in_points.size() == 2 && out_points.size() == 1) {
+        triangle newTri1(in_tri);
+        newTri1.p[0] = *in_points[0];
+        newTri1.p[1] = *in_points[1];
+        newTri1.p[2] = SegmentIntersectHyperplane(*in_points[0], *out_points[0], dimSelector);
+        
+        triangle newTri2(in_tri);
+        newTri2.p[0] = *in_points[1];
+        newTri2.p[1] = SegmentIntersectHyperplane(*in_points[1], *out_points[0], dimSelector);
+        newTri2.p[2] = newTri1.p[2];
+
+        result.push_back(newTri1);
+        result.push_back(newTri2);
+        return result;
+    }
+
+    std::cerr << "[Error] Invalid state in Hyperplane Clipping" << std::endl;
+    return {};
+}
+
+std::queue<triangle> FrustrumClipTriangle(const triangle& in_tri) {
+    std::queue<triangle> triangles;
+    triangles.push(in_tri);
+
+    std::vector<std::pair<vec3d, std::function<float(const vec3d&)>>> planes = {
+        {{0, 0, -1, 1}, [](const vec3d& v) { return v.z; }},    // z = w
+        {{0, 0, 1, 1}, [](const vec3d& v) { return -v.z; }},    // z = -w
+        {{0, -1, 0, 1}, [](const vec3d& v) { return v.y; }},    // y = w
+        {{0, 1, 0, 1}, [](const vec3d& v) { return -v.y; }},    // y = -w
+        {{-1, 0, 0, 1}, [](const vec3d& v) { return v.x; }},    // x = w
+        {{1, 0, 0, 1}, [](const vec3d& v) { return -v.x; }},    // x = -w
+    };
+
+    for (const auto& pair : planes) {
+        int queueSize = triangles.size();
+        
+        for (int i = 0; i < queueSize; ++i) {
+            std::vector<triangle> newTriangles = HyperplaneClipTriangle(
+                triangles.front(),
+                pair.first,
+                pair.second);
+    
+            triangles.pop();
+    
+            for (auto& tri : newTriangles) {
+                triangles.push(tri);
+            }
+        }
+    }
+    
+    return triangles; 
+}
+
 vec3d VectorIntersectPlane(vec3d& plane_n, const vec3d& plane_p, const vec3d& lineStart, const vec3d& lineEnd) {
     plane_n.Normalize();
     vec3d line_v = lineEnd - lineStart;
@@ -174,7 +272,7 @@ vec3d VectorIntersectPlane(vec3d& plane_n, const vec3d& plane_p, const vec3d& li
 std::vector<triangle> PlaneClipTriangle(vec3d& plane_n, const vec3d& plane_p, const triangle& in_tri) {
     plane_n.Normalize();
 
-    auto const dist = [&](const vec3d &p) -> float const {
+    auto const dist = [&](const vec3d& p)  {
         return plane_n.Dot(p - plane_p);
     };
 

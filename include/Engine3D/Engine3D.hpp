@@ -1,7 +1,7 @@
 #pragma once
 
-#include <memory>
 #include <vector>
+
 #include "Engine3D/RenderWindow.hpp"
 #include "Engine3D/VectorMatrix.hpp"
 
@@ -14,7 +14,7 @@ class Engine3D {
 private:
     // Window parameters
     int _width, _height, _fpsTarget;
-    std::unique_ptr<RenderWindow> _renderWindow;
+    RenderWindow _renderWindow;
     
     // Projection matrix parameters
     float _zNear, _zFar, _fov, _aspectRatio;
@@ -22,7 +22,6 @@ private:
     
     // Camera parameters
     vec3d _vCameraPosition, _vCameraDirection, _vUpDirection;
-    vec3d _nNearPlane, _pNearPlane;
     
     // Light parameters
     vec3d _lightDirection;

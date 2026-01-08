@@ -3,6 +3,7 @@
 #include <iostream>
 #include <ostream>
 #include <vector>
+#include <queue>
 #include <cmath>
 
 struct vec3d {
@@ -49,7 +50,7 @@ struct vec3d {
 
     vec3d& operator/=(const float f) {
         if (f < 0.00001f && f > -0.00001f) {
-            std::cerr << "[Error] Zero division in vector divide" << std::endl;
+            std::cerr << "[Error] Zero division in Vector Divide" << std::endl;
             return *this;
         }
 
@@ -64,7 +65,7 @@ struct vec3d {
     vec3d Normal() const {
         float l = Length();
         if (l < 0.000001f && l > -0.000001f) {
-            std::cerr << "[Error] Zero division in vector normalization" << std::endl;
+            std::cerr << "[Error] Zero division in Vector Normal" << std::endl;
             return *this;
         }
 
@@ -74,7 +75,7 @@ struct vec3d {
     vec3d& Normalize() {
         float l = Length();
         if (l < 0.000001f && l > -0.000001f) {
-            std::cerr << "[Error] Zero division in vector normalization" << std::endl;
+            std::cerr << "[Error] Zero division in Vector Normalize" << std::endl;
             return *this;
         }
 
@@ -92,6 +93,22 @@ struct vec3d {
             z * v.x - x * v.z,
             x * v.y - y * v.x
         };
+    }
+
+    vec3d SubHomogeneous(const vec3d& v) const {
+        return { x - v.x, y - v.y, z - v.z, w - v.w };
+    }
+
+    vec3d AddHomogeneous(const vec3d& v) const {
+        return { x + v.x, y + v.y, z + v.z, w + v.w };
+    }
+
+    vec3d MulHomogeneous(const float f) const {
+        return { x * f, y * f, z * f, w * f };
+    }
+
+    float DotHomogeneous(const vec3d& v) const {
+        return x * v.x + y * v.y + z * v.z + w * v.w;
     }
 };
 
@@ -164,3 +181,4 @@ mat4x4 MatrixMakeProjection(float fFovDegrees, float fAspectRatio, float fNear, 
 mat4x4 MatrixMakeTransform(vec3d& pos, vec3d& target, vec3d& up);
 mat4x4 MatrixMakeInverseTransform(mat4x4 &m);
 std::vector<triangle> PlaneClipTriangle(vec3d& plane_n, const vec3d& plane_p, const triangle& in_tri);
+std::queue<triangle> FrustrumClipTriangle(const triangle& in_tri);
