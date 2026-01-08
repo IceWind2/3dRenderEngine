@@ -1,5 +1,6 @@
 #include <fstream>
 #include <sstream>
+
 #include "Engine3D/VectorMatrix.hpp"
 
 bool LoadMeshFromObjectFile(const std::string& filename, mesh& obj) {
@@ -47,8 +48,7 @@ vec3d MatrixMultiplyVector(const mat4x4& m, const vec3d& v) {
 }
 
 triangle MatrixMultiplyTriangle(const mat4x4& m, const triangle& t) {
-    triangle result;
-    result.normal = t.normal;
+    triangle result(t);
     result.p[0] = MatrixMultiplyVector(m, t.p[0]);
     result.p[1] = MatrixMultiplyVector(m, t.p[1]);
     result.p[2] = MatrixMultiplyVector(m, t.p[2]);
@@ -157,4 +157,73 @@ mat4x4 MatrixMakeInverseTransform(mat4x4 &m) {
     matrix.m[3][2] = -(m.m[3][0] * matrix.m[0][2] + m.m[3][1] * matrix.m[1][2] + m.m[3][2] * matrix.m[2][2]);
     matrix.m[3][3] = 1.0f;
     return matrix;
+}
+ 
+vec3d VectorIntersectPlane(vec3d& plane_n, const vec3d& plane_p, const vec3d& lineStart, const vec3d& lineEnd) {
+    plane_n.Normalize();
+    vec3d line_v = lineEnd - lineStart;
+
+    float D = plane_n.Dot(plane_p);
+    float AN = lineStart.Dot(plane_n);
+    float BN = lineEnd.Dot(plane_n);
+    float t = (D - AN) / (BN - AN);
+    
+    return lineStart + line_v * t;
+}
+
+std::vector<triangle> PlaneClipTriangle(vec3d& plane_n, const vec3d& plane_p, const triangle& in_tri) {
+    plane_n.Normalize();
+
+    auto const dist = [&](const vec3d &p) -> float const {
+        return plane_n.Dot(p - plane_p);
+    };
+
+    std::vector<vec3d const*> in_points;
+    std::vector<vec3d const*> out_points;
+
+    for(auto& p : in_tri.p) {
+        if (dist(p) >= 0.0f) {
+            in_points.push_back(&p);
+        }
+        else {
+            out_points.push_back(&p);
+        }
+    }
+
+    if (in_points.size() == 0) {
+        return {};
+    }
+    if (in_points.size() == 3) {
+        return {in_tri};
+    }
+
+    std::vector<triangle> result;
+
+    if (in_points.size() == 1 && out_points.size() == 2) {
+        triangle newTri(in_tri);
+        newTri.p[0] = *in_points[0];
+        newTri.p[1] = VectorIntersectPlane(plane_n, plane_p, *in_points[0], *out_points[0]);
+        newTri.p[2] = VectorIntersectPlane(plane_n, plane_p, *in_points[0], *out_points[1]);
+
+        result.push_back(newTri);
+        return result;
+    }
+
+    if (in_points.size() == 2 && out_points.size() == 1) {
+        triangle newTri1(in_tri);
+        newTri1.p[0] = *in_points[0];
+        newTri1.p[1] = *in_points[1];
+        newTri1.p[2] = VectorIntersectPlane(plane_n, plane_p, *in_points[0], *out_points[0]);
+        
+        triangle newTri2(in_tri);
+        newTri2.p[0] = *in_points[1];
+        newTri2.p[1] = VectorIntersectPlane(plane_n, plane_p, *in_points[1], *out_points[0]);
+        newTri2.p[2] = newTri1.p[2];
+
+        result.push_back(newTri1);
+        result.push_back(newTri2);
+        return result;
+    }
+
+    return result;
 }

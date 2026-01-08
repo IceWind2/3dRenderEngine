@@ -25,15 +25,14 @@ RenderWindow::~RenderWindow() {
 }
 
 void RenderWindow::DrawTriangle(const triangle& tri, const float lum) const{
-    SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 255);
-
-    SDL_FPoint points[3];
+    SDL_FPoint points[4];
     points[0].x = tri.p[0].x;
     points[0].y = tri.p[0].y;
     points[1].x = tri.p[1].x;
     points[1].y = tri.p[1].y;
     points[2].x = tri.p[2].x;
     points[2].y = tri.p[2].y;
+    points[3] = points[0];
     SDL_Vertex vertices[3];
     vertices[0].position = points[0];
     vertices[1].position = points[1];
@@ -43,6 +42,10 @@ void RenderWindow::DrawTriangle(const triangle& tri, const float lum) const{
     vertices[2].color = {lum, lum, lum, 255};
 
     SDL_RenderGeometry(_renderer, NULL, vertices, 3, NULL, 0);
+
+    // Draw wireframe
+    SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 255);
+    SDL_RenderLines(_renderer, points, 4);
 }
 
 void RenderWindow::Present() const{

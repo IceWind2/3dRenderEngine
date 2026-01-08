@@ -12,11 +12,22 @@ struct UpdateData {
 
 class Engine3D {
 private:
+    // Window parameters
     int _width, _height, _fpsTarget;
     std::unique_ptr<RenderWindow> _renderWindow;
-    vec3d _vCameraPosition, _vCameraDirection, _vUpDirection, _lightDirection;
+    
+    // Projection matrix parameters
+    float _zNear, _zFar, _fov, _aspectRatio;
     mat4x4 _matProj;
     
+    // Camera parameters
+    vec3d _vCameraPosition, _vCameraDirection, _vUpDirection;
+    vec3d _nNearPlane, _pNearPlane;
+    
+    // Light parameters
+    vec3d _lightDirection;
+    
+    // Scene objects
     std::vector<mesh> _objects;
 
     void Update(float deltaTime);

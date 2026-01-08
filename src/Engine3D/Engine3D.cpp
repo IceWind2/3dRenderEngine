@@ -14,20 +14,22 @@ Engine3D::Engine3D(int width, int height) : _width(width), _height(height) {
     _renderWindow = std::make_unique<RenderWindow>("3D Graphics Engine", width, height);
     _fpsTarget = 120;
     
+    // Setup default projection matrix
+    _zNear = 0.1f;
+    _zFar = 1000.0f;
+    _fov = 90.0f;
+    _aspectRatio = (float)height / (float)width;
+    _matProj = MatrixMakeProjection(_fov, _aspectRatio, _zNear, _zFar);
+    
     // Setup camera
     _vCameraPosition = { 0.0f, 0.0f, 0.0f };
     _vCameraDirection = { 0.0f, 0.0f, 1.0f };
     _vUpDirection = { 0.0f, 1.0f, 0.0f };
-    _lightDirection = { 0.0f, 0.0f, 1.0f };
-    _lightDirection.Normalize();
+    _nNearPlane = { 0.0f, 0.0f, 1.0f };
+    _pNearPlane = {0.0f, 0.0f, _zNear };
 
-    // Setup default projection matrix
-    float near = 0.1f;
-    float far = 1000.0f;
-    float fov = 90.0f;
-    float aspectRatio = (float)height / (float)width;
-    float fovRad = 1.0f / tanf(fov * 0.5f * 3.14159f / 180.0f);
-    _matProj = MatrixMakeProjection(fov, aspectRatio, near, far);
+    // Setup light
+    _lightDirection = { 0.0f, 0.0f, 1.0f };
 
     LoadObjects();
 }
@@ -60,7 +62,7 @@ void Engine3D::StartEngineLoop() {
                 exit = true;
             }
 
-            if (event.type == SDL_EVENT_KEY_DOWN && event.key.scancode == SDL_SCANCODE_SPACE) {
+            if (event.type == SDL_EVENT_KEY_DOWN && event.key.scancode == SDL_SCANCODE_RETURN) {
                 process = !process;
             }
         }
@@ -91,8 +93,8 @@ void Engine3D::Update(float deltaTime) {
     // _objects[0].radRotation.y += 0.001f * deltaTime;
 
     // Move camera
-    float moveSpeed = 0.02f * deltaTime;
-    float rotationSpeed = 0.002f * deltaTime;
+    float moveSpeed = 0.01f * deltaTime;
+    float rotationSpeed = 0.001f * deltaTime;
     const bool* state = SDL_GetKeyboardState(NULL);
 
     if (state[SDL_SCANCODE_W]) {
@@ -118,7 +120,7 @@ void Engine3D::Update(float deltaTime) {
         _vCameraDirection = MatrixMultiplyVector(matRotY, _vCameraDirection).Normalize();
     }
 
-    if (state[SDL_SCANCODE_LSHIFT]) {
+    if (state[SDL_SCANCODE_SPACE]) {
         _vCameraPosition += _vUpDirection * moveSpeed;
     }
     if (state[SDL_SCANCODE_LCTRL] || state[SDL_SCANCODE_RCTRL]) {
@@ -159,27 +161,33 @@ void Engine3D::Render() {
             // View transformation
             triTransformed = MatrixMultiplyTriangle(matView, triTransformed);
 
-            // Project triangles from 3D --> 2D
-            triTransformed = MatrixMultiplyTriangle(_matProj, triTransformed);
-    
-            // Perspective divide
-            triTransformed.p[0] /= triTransformed.p[0].w;
-            triTransformed.p[1] /= triTransformed.p[1].w;
-            triTransformed.p[2] /= triTransformed.p[2].w;
+            // Clipping
+            std::vector<triangle> clippedTriangles = PlaneClipTriangle(_nNearPlane, _pNearPlane, triTransformed);
 
-            // Viewport transform
-            triTransformed.p[0].y *= -1.0f;
-            triTransformed.p[1].y *= -1.0f;
-            triTransformed.p[2].y *= -1.0f;
-            triTransformed += vec3d{1.0f, 1.0f, 0.0f};
-            triTransformed.p[0].x *= 0.5f * (float)_width;
-            triTransformed.p[0].y *= 0.5f * (float)_height;
-            triTransformed.p[1].x *= 0.5f * (float)_width;
-            triTransformed.p[1].y *= 0.5f * (float)_height;
-            triTransformed.p[2].x *= 0.5f * (float)_width;
-            triTransformed.p[2].y *= 0.5f * (float)_height;
-            
-            trianglesToRaster.push_back(triTransformed);
+
+            for (auto& triClipped : clippedTriangles) {
+                // Project triangles from 3D --> 2D
+                triClipped = MatrixMultiplyTriangle(_matProj, triClipped);
+    
+                // Perspective divide
+                triClipped.p[0] /= triClipped.p[0].w;
+                triClipped.p[1] /= triClipped.p[1].w;
+                triClipped.p[2] /= triClipped.p[2].w;
+    
+                // Viewport transform
+                triClipped.p[0].y *= -1.0f;
+                triClipped.p[1].y *= -1.0f;
+                triClipped.p[2].y *= -1.0f;
+                triClipped += vec3d{1.0f, 1.0f, 0.0f};
+                triClipped.p[0].x *= 0.5f * (float)_width;
+                triClipped.p[0].y *= 0.5f * (float)_height;
+                triClipped.p[1].x *= 0.5f * (float)_width;
+                triClipped.p[1].y *= 0.5f * (float)_height;
+                triClipped.p[2].x *= 0.5f * (float)_width;
+                triClipped.p[2].y *= 0.5f * (float)_height;
+                
+                trianglesToRaster.push_back(triClipped);
+            }
         }
     }
     
@@ -193,7 +201,7 @@ void Engine3D::Render() {
 
     // Rasterize triangles            
     for (auto& tri : trianglesToRaster) {
-        float lum = -tri.normal.Dot(_vCameraDirection);
+        float lum = fmax(0.1, -tri.normal.Dot(_lightDirection));
         _renderWindow->DrawTriangle(tri, lum);
     }
     
